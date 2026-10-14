@@ -1,0 +1,8 @@
+hostname,type,env,owner,criticality
+trade-gw01,server,prod,Market Data,high
+trade-gw02,server,prod,Market Data,high
+k8s-node-01,container_host,prod,Platform,high
+k8s-node-02,container_host,prod,Platform,high
+fin-app01,cloud_vm,prod,Finance IT,medium
+WS-1042,workstation,corp,Desktop,low
+WS-1043,workstation,corp,Desktop,low
