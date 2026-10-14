@@ -12,6 +12,22 @@ This tool reconciles the asset inventory against each tool and reports:
 
 Host names are normalized (FQDN vs short name, case), because tools rarely agree on them.
 
+### Mixed EDR fleets
+
+Many environments run more than one EDR (CrowdStrike on servers, Defender on laptops, SentinelOne after an acquisition). Pass each console's raw export with its vendor and the tool merges them, keeping the latest check-in per host:
+
+```bash
+python -m scr.cli --inventory samples/inventory.csv \
+  --edr defender:samples/defender_laptops.csv --edr sentinelone:samples/s1_servers.csv \
+  --scanner samples/scanner.csv --today 2026-10-14 --controls
+```
+
+Supported exports: CrowdStrike Falcon, Microsoft Defender for Endpoint, SentinelOne, or a generic CSV.
+
+### Audit mapping
+
+`--controls` tags every gap with the CIS Controls v8 safeguard and NIST CSF 2.0 subcategory it affects (for example a missing EDR agent maps to CIS 10.1 / DE.CM-09, an unknown host to CIS 1.1 / ID.AM-01), so the output can go straight into an audit or posture report.
+
 ## Run
 
 ```bash

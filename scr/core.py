@@ -46,7 +46,9 @@ def reconcile(inventory, tools, today, min_sensor=None):
     gaps = []
     for host, a in inv.items():
         for tool in REQUIRED.get(a["type"], []):
-            rec = idx.get(tool, {}).get(host)
+            if tool not in idx:          # tool export not supplied; don't report it as missing everywhere
+                continue
+            rec = idx[tool].get(host)
             if rec is None:
                 gaps.append({"host": host, "owner": a["owner"], "criticality": a["criticality"], "tool": tool,
                              "issue": "missing"})
@@ -69,11 +71,11 @@ def _ver(v):
     return tuple(int(x) for x in v.split(".") if x.isdigit())
 
 
-def coverage(inventory, gaps):
+def coverage(inventory, gaps, tools=("edr", "siem", "scanner", "runtime")):
     """Percent of in-scope hosts with each required tool present and current."""
     inv = index(inventory)
     out = {}
-    for tool in ("edr", "siem", "scanner", "runtime"):
+    for tool in tools:
         scope = [h for h, a in inv.items() if tool in REQUIRED.get(a["type"], [])]
         bad = {g["host"] for g in gaps if g["tool"] == tool and not g["issue"].startswith("outdated")}
         if scope:
