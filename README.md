@@ -36,3 +36,27 @@ python -m scr.cli --inventory samples/inventory.csv --edr samples/edr.csv --siem
 ```
 
 Feed it nightly exports (CrowdStrike/Defender host lists, SIEM source inventory, Tenable assets, CMDB) and it exits non-zero when a high-criticality host is missing a control.
+
+## Security tool health (L2 operations)
+
+Coverage asks "is every host in every tool?". `--health` asks "is every tool working?":
+
+```bash
+python -m scr.cli --health samples/tool_health.csv
+```
+
+```
+Tool health: CrowdStrike=degraded  Delinea=healthy  Google SecOps=degraded  Ping Identity=healthy  Tanium=degraded
+  [P1] Google SecOps  Palo Alto firewall feed   feed silent            no events for 31 h  -> escalate to L3
+  [P2] CrowdStrike    SIEM streaming API        integration failing    401 Unauthorized: API client secret rotated  -> escalate to L3
+  [P2] Tanium         Tanium Server             certificate expiring   expires in 5 days
+  [P3] CrowdStrike    Falcon platform           below minimum version  7.16.1 < 7.18.0
+```
+
+- **Silent SIEM feeds** (Google SecOps, Splunk, Sentinel): P2 after 6 hours, P1 after 24
+- **Failing integrations and connectors** with the vendor error, e.g. an expired API secret
+- **Platforms below the minimum version**, for patch and upgrade planning
+- **Licences at 90%+** and **TLS certificates** expiring within 30 days or already expired
+- Every issue gets a priority, a first-step runbook action, and an L3 escalation flag when it is P1 or failing for over 24 hours. Exit code 1 on any P1, so it can run on a schedule and page.
+
+The input is one row per tool component, exported from each platform's health/status API or filled by a scheduled script.

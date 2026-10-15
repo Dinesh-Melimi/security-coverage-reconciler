@@ -5,18 +5,25 @@ from datetime import date
 from .adapters import VENDORS, load_edr, merge
 from .controls import tag
 from .core import coverage, read, reconcile
+from .health import check, load, summary
 
 CRIT = {"high": 0, "medium": 1, "low": 2}
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Find hosts missing or stale in security tools.")
-    ap.add_argument("--inventory", required=True)
+    ap.add_argument("--inventory", help="Asset inventory CSV (required for coverage checks)")
     ap.add_argument("--edr", action="append", default=[], help="EDR export, as PATH or VENDOR:PATH (repeatable)"); ap.add_argument("--siem"); ap.add_argument("--scanner"); ap.add_argument("--runtime")
     ap.add_argument("--min-sensor", help="Minimum acceptable EDR sensor version")
     ap.add_argument("--today", default=date.today().isoformat())
     ap.add_argument("--controls", action="store_true", help="Show CIS v8 / NIST CSF mapping for each gap")
+    ap.add_argument("--health", help="Tool health CSV: check the security tools themselves instead of coverage")
+    ap.add_argument("--now", help="Override current time for --health (ISO)")
     a = ap.parse_args(argv)
+    if a.health:
+        return _health(a)
+    if not a.inventory:
+        ap.error("--inventory is required unless --health is used")
     ap_controls = a.controls
     tools = {k: read(getattr(a, k)) for k in ("siem", "scanner", "runtime") if getattr(a, k)}
     if a.edr:
@@ -38,6 +45,19 @@ def main(argv=None):
     if unknown:
         print("Seen by tools but not in inventory: " + ", ".join(unknown))
     return 1 if any(g["criticality"] == "high" and g["issue"] == "missing" for g in gaps) else 0
+
+
+def _health(a):
+    from datetime import datetime
+
+    rows = load(a.health)
+    issues = check(rows, datetime.fromisoformat(a.now) if a.now else datetime.now())
+    print("Tool health: " + "  ".join(f"{t}={st}" for t, st in summary(rows, issues).items()))
+    for i in issues:
+        esc = "  -> escalate to L3" if i["escalate_l3"] else ""
+        print(f"  [{i['priority']}] {i['tool']:14} {i['component']:32} {i['issue']:22} {i['detail']}{esc}")
+        print(f"        next step: {i['action']}")
+    return 1 if any(i["priority"] == "P1" for i in issues) else 0
 
 
 if __name__ == "__main__":
