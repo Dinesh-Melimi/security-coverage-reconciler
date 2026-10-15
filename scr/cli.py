@@ -6,6 +6,7 @@ from .adapters import VENDORS, load_edr, merge
 from .controls import tag
 from .core import coverage, read, reconcile
 from .health import check, load, summary
+from .metrics import render_prometheus
 
 CRIT = {"high": 0, "medium": 1, "low": 2}
 
@@ -19,6 +20,7 @@ def main(argv=None):
     ap.add_argument("--controls", action="store_true", help="Show CIS v8 / NIST CSF mapping for each gap")
     ap.add_argument("--health", help="Tool health CSV: check the security tools themselves instead of coverage")
     ap.add_argument("--now", help="Override current time for --health (ISO)")
+    ap.add_argument("--prometheus", help="With --health, write Prometheus metrics to this file")
     a = ap.parse_args(argv)
     if a.health:
         return _health(a)
@@ -57,6 +59,11 @@ def _health(a):
         esc = "  -> escalate to L3" if i["escalate_l3"] else ""
         print(f"  [{i['priority']}] {i['tool']:14} {i['component']:32} {i['issue']:22} {i['detail']}{esc}")
         print(f"        next step: {i['action']}")
+    if a.prometheus:
+        states = summary(rows, issues)
+        with open(a.prometheus, "w") as fh:
+            fh.write(render_prometheus(rows, issues, states))
+        print(f"Prometheus metrics written to {a.prometheus}")
     return 1 if any(i["priority"] == "P1" for i in issues) else 0
 
 

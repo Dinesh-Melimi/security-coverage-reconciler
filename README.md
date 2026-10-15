@@ -60,3 +60,18 @@ Tool health: CrowdStrike=degraded  Delinea=healthy  Google SecOps=degraded  Ping
 - Every issue gets a priority, a first-step runbook action, and an L3 escalation flag when it is P1 or failing for over 24 hours. Exit code 1 on any P1, so it can run on a schedule and page.
 
 The input is one row per tool component, exported from each platform's health/status API or filled by a scheduled script.
+
+### Prometheus metrics for Grafana
+
+`--prometheus metrics.prom` with `--health` writes the tool-health results as Prometheus text-exposition metrics, so the same checks drive a Grafana NOC health board and alerting:
+
+```bash
+python -m scr.cli --health samples/tool_health.csv --prometheus /var/lib/node_exporter/textfile/sec_tools.prom
+```
+
+- `security_tool_up{tool}` — 0 healthy / 1 warning / 2 degraded
+- `security_tool_issues_total{priority}` — open issue count per priority
+- `security_tool_issue{tool,component,issue,escalate_l3}` — each open issue
+- `security_tool_components_total{tool}` — monitored components per tool
+
+Point a node_exporter textfile collector or a Pushgateway at the output and alert on `security_tool_issues_total{priority="P1"} > 0`.
